@@ -28,16 +28,19 @@ export async function searchImages(query: string, num: number = 4): Promise<stri
     safe: "active",
   });
 
-  const response = await fetch(
-    `https://www.googleapis.com/customsearch/v1?${params.toString()}`
-  );
+  const url = `https://www.googleapis.com/customsearch/v1?${params.toString()}`;
+  console.log("[google-images] fetching:", url.replace(apiKey, "***"));
+
+  const response = await fetch(url);
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error("[google-images] API error response:", errorText);
     throw new Error(`Google Search API error: ${response.status} - ${errorText}`);
   }
 
   const data: GoogleSearchResponse = await response.json();
+  console.log("[google-images] items count:", data.items?.length ?? 0);
 
   if (!data.items || data.items.length === 0) {
     return [];

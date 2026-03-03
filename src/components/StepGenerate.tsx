@@ -99,6 +99,36 @@ export default function StepGenerate({
     onQuestionsChange(updated);
   }
 
+  async function handleAnswerChange(questionIndex: number, newAnswer: string) {
+    // Update the answer text immediately and clear old images
+    const updated = questions.map((q, i) =>
+      i === questionIndex
+        ? { ...q, answer: newAnswer, imageOptions: [], selectedImage: "" }
+        : q
+    );
+    onQuestionsChange(updated);
+
+    // Re-run image search for the new answer
+    try {
+      const imgRes = await fetch("/api/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, answer: newAnswer }),
+      });
+      if (imgRes.ok) {
+        const data = await imgRes.json();
+        const withImages = questions.map((q, i) =>
+          i === questionIndex
+            ? { ...q, answer: newAnswer, imageOptions: data.images || [], selectedImage: "" }
+            : q
+        );
+        onQuestionsChange(withImages);
+      }
+    } catch {
+      // Image search failed silently — user can still upload
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
       <div className="text-center mb-6">
@@ -173,6 +203,7 @@ export default function StepGenerate({
                 index={index}
                 question={question}
                 onSelectImage={(url) => handleSelectImage(index, url)}
+                onAnswerChange={(newAnswer) => handleAnswerChange(index, newAnswer)}
               />
             ))}
           </div>
