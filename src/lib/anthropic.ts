@@ -43,3 +43,36 @@ Example response format:
 
   return parsed;
 }
+
+export async function generateOneAnswer(
+  gameTitle: string,
+  existingAnswers: string[]
+): Promise<string> {
+  const excludeList = existingAnswers.join(", ");
+
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 256,
+    messages: [
+      {
+        role: "user",
+        content: `You are a sports trivia expert. For a trivia game titled "${gameTitle}", generate exactly 1 new correct answer.
+
+The following answers are already in the game, so do NOT repeat any of them:
+${excludeList}
+
+Rules:
+- Return exactly 1 answer — a person's full name (first and last)
+- Choose a well-known, recognizable person that a sports fan would know
+- Return ONLY the name as a plain string, no quotes, no JSON, no other text`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  if (content.type !== "text") {
+    throw new Error("Unexpected response type from Anthropic");
+  }
+
+  return content.text.trim().replace(/^["']|["']$/g, "");
+}

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateAnswers } from "@/lib/anthropic";
+import { generateAnswers, generateOneAnswer } from "@/lib/anthropic";
 
 export async function POST(request: NextRequest) {
   try {
-    const { title } = await request.json();
+    const body = await request.json();
+    const { title, replace, existing } = body;
 
     if (!title || typeof title !== "string") {
       return NextResponse.json(
@@ -12,6 +13,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Single replacement mode
+    if (replace) {
+      const existingAnswers: string[] = Array.isArray(existing) ? existing : [];
+      const answer = await generateOneAnswer(title, existingAnswers);
+      return NextResponse.json({ answer });
+    }
+
+    // Full generation mode (20 answers)
     const answers = await generateAnswers(title);
     return NextResponse.json({ answers });
   } catch (error) {

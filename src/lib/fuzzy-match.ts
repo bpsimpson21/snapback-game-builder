@@ -30,37 +30,61 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
+// Common sports nickname mappings
+const NICKNAMES: Record<string, string[]> = {
+  "robert griffin iii": ["rg3", "rgiii", "griffin"],
+  "desean jackson": ["djax", "djack"],
+  "michael jordan": ["mj", "air jordan"],
+  "lebron james": ["bron", "lbj", "king james"],
+  "shaquille oneal": ["shaq"],
+  "charles barkley": ["sir charles", "chuck"],
+  "patrick mahomes": ["mahomes"],
+  "tom brady": ["tb12", "brady"],
+  "aaron rodgers": ["arod", "a rod"],
+  "stephen curry": ["steph", "steph curry"],
+  "kevin durant": ["kd"],
+  "allen iverson": ["ai", "the answer"],
+  "dwyane wade": ["d wade", "dwade"],
+  "chris paul": ["cp3"],
+  "carmelo anthony": ["melo"],
+  "russell westbrook": ["russ", "westbrook"],
+  "anthony davis": ["ad"],
+  "derrick rose": ["d rose", "drose"],
+};
+
 export function fuzzyMatch(userInput: string, correctAnswer: string): boolean {
   const input = normalize(userInput);
   const answer = normalize(correctAnswer);
 
   if (!input) return false;
 
-  // Exact match
+  // 1. Exact match (case-insensitive, normalized)
   if (input === answer) return true;
 
-  // Check if input matches last name (last word of answer)
-  const answerParts = answer.split(/\s+/);
-  const lastName = answerParts[answerParts.length - 1];
-  if (answerParts.length > 1 && input === lastName) return true;
+  const answerWords = answer.split(/\s+/);
 
-  // Check if input matches first name
-  const firstName = answerParts[0];
-  if (answerParts.length > 1 && input === firstName) return true;
+  // 2. Any individual word in the answer matches exactly
+  if (answerWords.some((word) => word === input)) return true;
 
-  // Check substring containment (answer contains input or vice versa)
-  if (answer.includes(input) && input.length >= 3) return true;
-  if (input.includes(answer)) return true;
+  // 3. Last name matches (last word)
+  const lastName = answerWords[answerWords.length - 1];
+  if (answerWords.length > 1 && input === lastName) return true;
 
-  // Levenshtein distance - allow 1 typo for short names, 2 for longer
-  const threshold = answer.length <= 5 ? 1 : 2;
-  if (levenshtein(input, answer) <= threshold) return true;
+  // 4. Levenshtein distance ratio < 0.3 (~30% typo tolerance)
+  const dist = levenshtein(input, answer);
+  const maxLen = Math.max(input.length, answer.length);
+  if (maxLen > 0 && dist / maxLen < 0.3) return true;
 
-  // Check levenshtein against last name too
-  if (answerParts.length > 1) {
-    const lastNameThreshold = lastName.length <= 5 ? 1 : 2;
-    if (levenshtein(input, lastName) <= lastNameThreshold) return true;
+  // Also check Levenshtein against last name
+  if (answerWords.length > 1) {
+    const lastDist = levenshtein(input, lastName);
+    const lastMax = Math.max(input.length, lastName.length);
+    if (lastMax > 0 && lastDist / lastMax < 0.3) return true;
   }
+
+  // 5. Nickname / abbreviation lookup
+  const nicknames = NICKNAMES[answer];
+  if (nicknames && nicknames.some((nick) => normalize(nick) === input)) return true;
 
   return false;
 }

@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Game, GameQuestion } from "@/types/game";
+import { saveGame } from "@/lib/game-store";
 
 interface StepReviewProps {
   title: string;
@@ -9,18 +12,29 @@ interface StepReviewProps {
 }
 
 export default function StepReview({ title, questions, onBack }: StepReviewProps) {
+  const router = useRouter();
+  const [published, setPublished] = useState(false);
+
   function handlePublish() {
     const game: Game = {
       id: Date.now().toString(36),
       title,
       questions,
+      createdAt: Date.now(),
+      playCount: 0,
     };
 
-    localStorage.setItem(`game-${game.id}`, JSON.stringify(game));
+    saveGame(game);
 
+    // Copy play URL to clipboard
     const playUrl = `${window.location.origin}/play?id=${game.id}`;
     navigator.clipboard.writeText(playUrl).catch(() => {});
-    window.open(`/play?id=${game.id}`, "_blank");
+
+    // Show success state, then redirect to home with highlight
+    setPublished(true);
+    setTimeout(() => {
+      router.push(`/?published=${game.id}`);
+    }, 1500);
   }
 
   function handlePreview() {
@@ -28,9 +42,25 @@ export default function StepReview({ title, questions, onBack }: StepReviewProps
       id: "preview",
       title,
       questions,
+      createdAt: Date.now(),
+      playCount: 0,
     };
     localStorage.setItem("game-preview", JSON.stringify(game));
     window.open("/play?id=preview", "_blank");
+  }
+
+  if (published) {
+    return (
+      <div className="max-w-3xl mx-auto text-center py-16">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
+          <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-3xl font-bold text-white mb-2">Game Published!</h2>
+        <p className="text-white/60">Play link copied to clipboard. Redirecting to your games...</p>
+      </div>
+    );
   }
 
   return (
@@ -38,7 +68,7 @@ export default function StepReview({ title, questions, onBack }: StepReviewProps
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-white mb-2">Review & Publish</h2>
         <p className="text-[#FFD700] font-medium">&ldquo;{title}&rdquo;</p>
-        <p className="text-white/40 text-sm mt-1">20 questions ready</p>
+        <p className="text-white/40 text-sm mt-1">{questions.length} questions ready</p>
       </div>
 
       <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 mb-8">
@@ -86,7 +116,7 @@ export default function StepReview({ title, questions, onBack }: StepReviewProps
       </div>
 
       <p className="text-white/30 text-xs text-center mt-4">
-        Publishing creates a shareable link and copies it to your clipboard
+        Publishing saves to your library and copies the play link to clipboard
       </p>
     </div>
   );

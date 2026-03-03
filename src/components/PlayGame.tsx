@@ -14,7 +14,7 @@ export default function PlayGame({ game }: PlayGameProps) {
   const [results, setResults] = useState<PlayResult[]>([]);
   const [input, setInput] = useState("");
   const [elapsed, setElapsed] = useState(0);
-  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | "passed" | null>(null);
   const [gameOver, setGameOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -63,6 +63,7 @@ export default function PlayGame({ game }: PlayGameProps) {
     const timeTaken = (Date.now() - startTimeRef.current) / 1000;
 
     if (fuzzyMatch(input, currentQuestion.answer)) {
+      // Correct
       setFeedback("correct");
       const newResults = [...results, { answer: currentQuestion.answer, correct: true, timeTaken }];
       setResults(newResults);
@@ -71,8 +72,9 @@ export default function PlayGame({ game }: PlayGameProps) {
       setTimeout(() => {
         setQueue(newQueue);
         advanceToNext(newQueue);
-      }, 1000);
+      }, 1500);
     } else {
+      // Wrong
       setFeedback("wrong");
       const newResults = [...results, { answer: currentQuestion.answer, correct: false, timeTaken }];
       setResults(newResults);
@@ -88,10 +90,18 @@ export default function PlayGame({ game }: PlayGameProps) {
   function handlePass() {
     if (!currentQuestion || feedback) return;
 
-    // Move current question to back of queue
-    const newQueue = [...queue.slice(1), currentQuestion];
-    setQueue(newQueue);
-    advanceToNext(newQueue);
+    const timeTaken = (Date.now() - startTimeRef.current) / 1000;
+
+    // Pass = wrong. Remove from queue, score as incorrect.
+    setFeedback("passed");
+    const newResults = [...results, { answer: currentQuestion.answer, correct: false, timeTaken }];
+    setResults(newResults);
+
+    const newQueue = queue.slice(1);
+    setTimeout(() => {
+      setQueue(newQueue);
+      advanceToNext(newQueue);
+    }, 800);
   }
 
   if (gameOver) {
@@ -124,7 +134,11 @@ export default function PlayGame({ game }: PlayGameProps) {
       </p>
 
       {/* Image */}
-      <div className="relative aspect-video rounded-xl overflow-hidden border border-white/10 mb-6 bg-black">
+      <div className={`relative aspect-video rounded-xl overflow-hidden mb-6 bg-black ${
+        feedback === "correct"
+          ? "border-2 border-green-500 ring-2 ring-green-500/30"
+          : "border border-white/10"
+      }`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={currentQuestion.selectedImage}
@@ -137,23 +151,33 @@ export default function PlayGame({ game }: PlayGameProps) {
             {elapsed.toFixed(1)}s
           </span>
         </div>
-        {/* Feedback overlay */}
+
+        {/* Correct overlay */}
         {feedback === "correct" && (
-          <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center animate-pulse">
-            <div className="bg-green-500 text-white font-bold text-2xl px-6 py-3 rounded-xl">
-              {currentQuestion.answer}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-green-900/90 to-transparent pt-8 pb-4 px-4">
+            <div className="text-center">
+              <p className="text-green-400 font-bold text-xl">Correct!</p>
+              <p className="text-white font-bold text-lg">{currentQuestion.answer}</p>
             </div>
           </div>
         )}
+
+        {/* Wrong overlay — show correct answer */}
         {feedback === "wrong" && (
-          <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent pt-8 pb-4 px-4">
             <div className="text-center">
-              <div className="bg-red-500 text-white font-bold text-xl px-6 py-2 rounded-xl mb-2">
-                Wrong!
-              </div>
-              <div className="bg-black/80 text-white font-medium text-lg px-4 py-2 rounded-lg">
-                Answer: {currentQuestion.answer}
-              </div>
+              <p className="text-red-400 font-bold text-sm uppercase tracking-wide mb-1">Wrong</p>
+              <p className="text-white font-bold text-xl">{currentQuestion.answer}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Pass overlay — show correct answer */}
+        {feedback === "passed" && (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent pt-8 pb-4 px-4">
+            <div className="text-center">
+              <p className="text-yellow-400 font-bold text-sm uppercase tracking-wide mb-1">Passed</p>
+              <p className="text-white font-bold text-xl">{currentQuestion.answer}</p>
             </div>
           </div>
         )}
@@ -190,7 +214,7 @@ export default function PlayGame({ game }: PlayGameProps) {
       </div>
 
       <p className="text-white/30 text-xs text-center mt-3">
-        Press Enter to submit &middot; Pass sends the question to the back of the queue
+        Press Enter to submit &middot; Pass skips the question (counts as wrong)
       </p>
     </div>
   );

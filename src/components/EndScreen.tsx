@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PlayResult } from "@/types/game";
 
 interface EndScreenProps {
@@ -23,7 +24,7 @@ export default function EndScreen({ gameTitle, results }: EndScreenProps) {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-4xl font-black text-white mb-2">Game Over!</h2>
+        <h2 className="text-4xl font-black text-white mb-2">Game Complete!</h2>
         <p className="text-white/60">{gameTitle}</p>
       </div>
 
@@ -76,7 +77,13 @@ export default function EndScreen({ gameTitle, results }: EndScreenProps) {
         ))}
       </div>
 
-      <div className="text-center mt-8">
+      <div className="flex items-center justify-center gap-3 mt-8">
+        <Link
+          href="/"
+          className="px-6 py-3 border border-white/10 text-white/60 font-bold rounded-lg hover:bg-white/5 hover:text-white transition-colors"
+        >
+          Back to Games
+        </Link>
         <button
           onClick={() => window.location.reload()}
           className="px-6 py-3 bg-[#FFD700] text-black font-bold rounded-lg hover:bg-[#FFD700]/90 transition-colors"

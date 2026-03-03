@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { Game } from "@/types/game";
+import { incrementPlayCount } from "@/lib/game-store";
 import PlayGame from "@/components/PlayGame";
 import Header from "@/components/Header";
 
@@ -30,6 +31,11 @@ function PlayContent() {
     try {
       const parsed = JSON.parse(stored) as Game;
       setGame(parsed);
+
+      // Increment play count (skip for preview)
+      if (gameId !== "preview") {
+        incrementPlayCount(gameId);
+      }
     } catch {
       setError("Failed to load game data");
     }
@@ -44,7 +50,7 @@ function PlayContent() {
             href="/"
             className="text-[#FFD700] hover:underline"
           >
-            &larr; Back to Game Builder
+            &larr; Back to Games
           </Link>
         </div>
       </div>

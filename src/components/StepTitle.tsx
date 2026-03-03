@@ -64,6 +64,59 @@ export default function StepTitle({ title, onTitleChange, onNext }: StepTitlePro
           ))}
         </div>
       </div>
+
+      {/* How It Works */}
+      <div className="mt-10 bg-white/[0.03] border border-white/10 rounded-xl p-6">
+        <h3 className="text-white/60 text-xs font-semibold uppercase tracking-wider mb-4 text-center">
+          How It Works
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#FFD700]/10 text-[#FFD700] text-xs font-bold flex items-center justify-center">
+              1
+            </span>
+            <div>
+              <p className="text-white text-sm font-medium">Enter a game title</p>
+              <p className="text-white/40 text-xs mt-0.5">
+                The more specific, the better. &ldquo;Name That 90s Bull&rdquo; gives you Jordan, Pippen, Rodman.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#FFD700]/10 text-[#FFD700] text-xs font-bold flex items-center justify-center">
+              2
+            </span>
+            <div>
+              <p className="text-white text-sm font-medium">AI generates 20 answers</p>
+              <p className="text-white/40 text-xs mt-0.5">
+                Claude analyzes your title and produces 20 correct answers instantly.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#FFD700]/10 text-[#FFD700] text-xs font-bold flex items-center justify-center">
+              3
+            </span>
+            <div>
+              <p className="text-white text-sm font-medium">Images auto-populate</p>
+              <p className="text-white/40 text-xs mt-0.5">
+                Google Image Search finds 2&ndash;4 photo options for each answer.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#FFD700]/10 text-[#FFD700] text-xs font-bold flex items-center justify-center">
+              4
+            </span>
+            <div>
+              <p className="text-white text-sm font-medium">Review &amp; customize</p>
+              <p className="text-white/40 text-xs mt-0.5">
+                Pick the best image for each question, edit or swap answers, then publish.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
