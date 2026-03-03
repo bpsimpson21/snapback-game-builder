@@ -36,11 +36,17 @@ export default function ImageCropModal({
   const posAtDragStart = useRef({ x: 0, y: 0 });
 
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [imgNaturalSize, setImgNaturalSize] = useState({ w: 0, h: 0 });
   const [scale, setScale] = useState(1);
   const [minScale, setMinScale] = useState(1);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [exporting, setExporting] = useState(false);
+
+  // Proxy external images through our API to avoid CORS issues
+  const proxiedUrl = imageUrl.startsWith("data:")
+    ? imageUrl
+    : `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
 
   // Viewport dimensions (CSS pixels)
   const VIEWPORT_WIDTH = 560;
@@ -215,6 +221,15 @@ export default function ImageCropModal({
     }
   }
 
+  // Loading timeout — if image doesn't load in 10s, show error
+  useEffect(() => {
+    if (loaded || loadError) return;
+    const timer = setTimeout(() => {
+      if (!loaded) setLoadError(true);
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [loaded, loadError]);
+
   // Escape key
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -258,10 +273,11 @@ export default function ImageCropModal({
           {/* Image */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={imageUrl}
+            src={proxiedUrl}
             alt="Crop preview"
             crossOrigin="anonymous"
             onLoad={handleImageLoad}
+            onError={() => setLoadError(true)}
             draggable={false}
             className="absolute select-none"
             style={{
@@ -275,9 +291,19 @@ export default function ImageCropModal({
           />
 
           {/* Loading spinner */}
-          {!loaded && (
+          {!loaded && !loadError && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          {/* Load error */}
+          {loadError && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+              <svg className="w-10 h-10 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <p className="text-white/50 text-sm">Failed to load image for cropping.</p>
             </div>
           )}
 
@@ -353,15 +379,17 @@ export default function ImageCropModal({
             onClick={onCancel}
             className="px-5 py-2 border border-white/10 text-white/60 font-medium rounded-lg hover:bg-white/5 hover:text-white transition-colors text-sm"
           >
-            Cancel
+            {loadError ? "Go Back" : "Cancel"}
           </button>
-          <button
-            onClick={handleSave}
-            disabled={!loaded || exporting}
-            className="px-5 py-2 bg-[#FFD700] text-black font-bold rounded-lg hover:bg-[#FFD700]/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
-          >
-            {exporting ? "Exporting..." : "Crop & Save"}
-          </button>
+          {!loadError && (
+            <button
+              onClick={handleSave}
+              disabled={!loaded || exporting}
+              className="px-5 py-2 bg-[#FFD700] text-black font-bold rounded-lg hover:bg-[#FFD700]/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
+            >
+              {exporting ? "Exporting..." : "Crop & Save"}
+            </button>
+          )}
         </div>
       </div>
     </div>
