@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { GameQuestion } from "@/types/game";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { GameQuestion, CropData } from "@/types/game";
 import QuestionRow from "./QuestionRow";
+import ImageCropModal from "./ImageCropModal";
 
 interface StepGenerateProps {
   title: string;
@@ -36,6 +37,12 @@ export default function StepGenerate({
   const toastIdRef = useRef(0);
   const questionsRef = useRef<GameQuestion[]>(questions);
   questionsRef.current = questions;
+
+  // Crop modal state
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
+  const [cropQuestionIndex, setCropQuestionIndex] = useState<number | null>(null);
+  const [cropInitialData, setCropInitialData] = useState<CropData | undefined>(undefined);
 
   const selectedCount = questions.filter((q) => q.selectedImage).length;
   const allSelected = questions.length >= 10 && selectedCount === questions.length;
@@ -140,10 +147,53 @@ export default function StepGenerate({
 
   function handleSelectImage(questionIndex: number, imageUrl: string) {
     const updated = questionsRef.current.map((q, i) =>
-      i === questionIndex ? { ...q, selectedImage: imageUrl } : q
+      i === questionIndex
+        ? { ...q, selectedImage: imageUrl, originalImageUrl: imageUrl ? q.originalImageUrl : undefined, cropData: imageUrl ? q.cropData : undefined }
+        : q
     );
     onQuestionsChange(updated);
   }
+
+  function handleImageClick(questionIndex: number, imageUrl: string) {
+    setCropImageUrl(imageUrl);
+    setCropQuestionIndex(questionIndex);
+    // If re-clicking the same source image, preserve crop data
+    const q = questionsRef.current[questionIndex];
+    setCropInitialData(q.originalImageUrl === imageUrl ? q.cropData : undefined);
+    setCropModalOpen(true);
+  }
+
+  function handleRecrop(questionIndex: number) {
+    const q = questionsRef.current[questionIndex];
+    setCropImageUrl(q.originalImageUrl || q.selectedImage);
+    setCropQuestionIndex(questionIndex);
+    setCropInitialData(q.cropData);
+    setCropModalOpen(true);
+  }
+
+  const handleCropSave = useCallback(
+    (result: { dataUrl: string }, cropData: CropData) => {
+      if (cropQuestionIndex === null || cropImageUrl === null) return;
+      const updated = questionsRef.current.map((q, i) =>
+        i === cropQuestionIndex
+          ? { ...q, selectedImage: result.dataUrl, originalImageUrl: cropImageUrl, cropData }
+          : q
+      );
+      onQuestionsChange(updated);
+      setCropModalOpen(false);
+      setCropImageUrl(null);
+      setCropQuestionIndex(null);
+      setCropInitialData(undefined);
+    },
+    [cropQuestionIndex, cropImageUrl, onQuestionsChange]
+  );
+
+  const handleCropCancel = useCallback(() => {
+    setCropModalOpen(false);
+    setCropImageUrl(null);
+    setCropQuestionIndex(null);
+    setCropInitialData(undefined);
+  }, []);
 
   async function handleDeleteQuestion(questionIndex: number) {
     const deletedAnswer = questionsRef.current[questionIndex].answer;
@@ -234,7 +284,7 @@ export default function StepGenerate({
   async function handleAnswerChange(questionIndex: number, newAnswer: string) {
     const updated = questionsRef.current.map((q, i) =>
       i === questionIndex
-        ? { ...q, answer: newAnswer, imageOptions: [], selectedImage: "" }
+        ? { ...q, answer: newAnswer, imageOptions: [], selectedImage: "", originalImageUrl: undefined, cropData: undefined }
         : q
     );
     onQuestionsChange(updated);
@@ -253,7 +303,7 @@ export default function StepGenerate({
         const data = await imgRes.json();
         const withImages = questionsRef.current.map((q, i) =>
           i === questionIndex
-            ? { ...q, answer: newAnswer, imageOptions: data.images || [], selectedImage: "" }
+            ? { ...q, answer: newAnswer, imageOptions: data.images || [], selectedImage: "", originalImageUrl: undefined, cropData: undefined }
             : q
         );
         onQuestionsChange(withImages);
@@ -303,7 +353,17 @@ export default function StepGenerate({
             &larr; Change title
           </button>
           {error && (
-            <p className="mt-4 text-red-400 text-sm">{error}</p>
+            <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-4 max-w-md mx-auto">
+              <p className="text-red-400 text-sm mb-3">
+                Failed to generate questions. This can happen with unusual topics — try again or adjust your game title.
+              </p>
+              <button
+                onClick={handleGenerate}
+                className="px-4 py-1.5 bg-red-500/20 text-red-300 text-sm font-medium rounded-md hover:bg-red-500/30 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -358,6 +418,8 @@ export default function StepGenerate({
                 question={question}
                 loading={loadingIndices.has(index)}
                 onSelectImage={(url) => handleSelectImage(index, url)}
+                onImageClick={(url) => handleImageClick(index, url)}
+                onRecrop={() => handleRecrop(index)}
                 onAnswerChange={(newAnswer) => handleAnswerChange(index, newAnswer)}
                 onDelete={() => handleDeleteQuestion(index)}
                 onExpand={() => handleExpand(index)}
@@ -395,6 +457,17 @@ export default function StepGenerate({
             </button>
           </div>
         </>
+      )}
+
+      {/* Crop Modal */}
+      {cropModalOpen && cropImageUrl && (
+        <ImageCropModal
+          imageUrl={cropImageUrl}
+          aspectRatio={16 / 9}
+          initialCropData={cropInitialData}
+          onSave={handleCropSave}
+          onCancel={handleCropCancel}
+        />
       )}
     </div>
   );

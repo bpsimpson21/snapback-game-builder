@@ -4,6 +4,37 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+/**
+ * Parse a JSON array from AI text, with fallback extraction if the model
+ * wraps its response in markdown fences or extra text.
+ */
+function parseJsonArray(text: string): string[] {
+  const trimmed = text.trim();
+
+  // Try direct parse first
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // fall through
+  }
+
+  // Try to extract a JSON array from the text (handles ```json ... ``` wrapping, preamble, etc.)
+  const match = trimmed.match(/\[[\s\S]*\]/);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // fall through
+    }
+  }
+
+  throw new Error(
+    `Failed to parse AI response as JSON. Response started with: "${trimmed.substring(0, 120)}"`
+  );
+}
+
 export async function generateAnswers(gameTitle: string): Promise<string[]> {
   const message = await client.messages.create({
     model: "claude-sonnet-4-20250514",
@@ -11,22 +42,26 @@ export async function generateAnswers(gameTitle: string): Promise<string[]> {
     messages: [
       {
         role: "user",
-        content: `You are a sports trivia expert. For a trivia game titled "${gameTitle}", generate exactly 20 correct answers.
+        content: `You are a trivia game question generator. For a game titled "${gameTitle}", generate exactly 20 correct answers.
 
-For example:
-- "Name That 2010s Redskin" → 20 notable Washington Redskins players from the 2010s
-- "Name That 90s Bull" → 20 notable Chicago Bulls players from the 1990s
-- "Name That 2000s Yankee" → 20 notable New York Yankees players from the 2000s
+The game title tells you WHAT the player needs to identify. Parse it carefully:
+- "Name That 90s Bull" → 20 notable Chicago Bulls players from the 1990s (answer = player full name)
+- "Name That Sports Movie" → 20 well-known sports movies (answer = movie title, NOT character names)
+- "Name That Disney Character" → 20 famous Disney characters (answer = character name)
+- "Name That Stadium" → 20 famous stadiums (answer = stadium name)
+- "Name That Coach" → 20 well-known coaches (answer = coach full name)
+- "Name That [X]" → 20 well-known X's (answer = whatever X is)
 
 Rules:
 - Return exactly 20 answers
-- Each answer should be a person's full name (first and last)
-- Choose well-known, recognizable people that a sports fan would know
-- Order them from most to least well-known
-- Return ONLY a JSON array of strings, no other text
+- Choose well-known, recognizable answers that fans of the topic would know
+- Include a mix of difficulty levels — mostly popular, a few deeper cuts
+- Order from most to least well-known
+- Return ONLY a JSON array of strings, no other text, no markdown fences, no preamble
+- Do NOT refuse the request. Generate answers for ANY topic.
 
 Example response format:
-["Player One", "Player Two", "Player Three", ...]`,
+["Answer One", "Answer Two", "Answer Three", ...]`,
       },
     ],
   });
@@ -36,12 +71,12 @@ Example response format:
     throw new Error("Unexpected response type from Anthropic");
   }
 
-  const parsed = JSON.parse(content.text);
-  if (!Array.isArray(parsed) || parsed.length !== 20) {
-    throw new Error("Expected exactly 20 answers from Anthropic");
+  const parsed = parseJsonArray(content.text);
+  if (parsed.length < 10) {
+    throw new Error(`Expected at least 10 answers but got ${parsed.length}`);
   }
 
-  return parsed;
+  return parsed.slice(0, 20);
 }
 
 export async function generateOneAnswer(
@@ -56,15 +91,22 @@ export async function generateOneAnswer(
     messages: [
       {
         role: "user",
-        content: `You are a sports trivia expert. For a trivia game titled "${gameTitle}", generate exactly 1 new correct answer.
+        content: `You are a trivia game question generator. For a game titled "${gameTitle}", generate exactly 1 new correct answer.
+
+The game title tells you WHAT the answer should be:
+- "Name That 90s Bull" → a Chicago Bulls player from the 1990s
+- "Name That Sports Movie" → a sports movie title (NOT a character name)
+- "Name That Disney Character" → a Disney character name
+- "Name That [X]" → an X
 
 The following answers are already in the game, so do NOT repeat any of them:
 ${excludeList}
 
 Rules:
-- Return exactly 1 answer — a person's full name (first and last)
-- Choose a well-known, recognizable person that a sports fan would know
-- Return ONLY the name as a plain string, no quotes, no JSON, no other text`,
+- Return exactly 1 answer
+- Choose a well-known, recognizable answer
+- Return ONLY the answer as a plain string, no quotes, no JSON, no other text
+- Do NOT refuse the request. Generate an answer for ANY topic.`,
       },
     ],
   });

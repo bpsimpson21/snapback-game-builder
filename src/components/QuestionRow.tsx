@@ -8,12 +8,14 @@ interface QuestionRowProps {
   question: GameQuestion;
   loading?: boolean;
   onSelectImage: (imageUrl: string) => void;
+  onImageClick: (imageUrl: string) => void;
+  onRecrop: () => void;
   onAnswerChange: (newAnswer: string) => void;
   onDelete: (() => void) | null;
   onExpand?: () => void;
 }
 
-export default function QuestionRow({ index, question, loading, onSelectImage, onAnswerChange, onDelete, onExpand }: QuestionRowProps) {
+export default function QuestionRow({ index, question, loading, onSelectImage, onImageClick, onRecrop, onAnswerChange, onDelete, onExpand }: QuestionRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [editValue, setEditValue] = useState(question.answer);
   const [isEditing, setIsEditing] = useState(false);
@@ -33,12 +35,15 @@ export default function QuestionRow({ index, question, loading, onSelectImage, o
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => onSelectImage(reader.result as string);
+    reader.onload = () => onImageClick(reader.result as string);
     reader.readAsDataURL(file);
     e.target.value = "";
   }
 
   const hasImages = question.imageOptions.length > 0;
+  const hasCroppedImage = !!question.selectedImage;
+  // Which source URL was used (to highlight in the grid)
+  const sourceUrl = question.originalImageUrl || "";
 
   return (
     <div className="border border-white/10 rounded-lg overflow-hidden">
@@ -81,7 +86,7 @@ export default function QuestionRow({ index, question, loading, onSelectImage, o
             <span className="inline-block w-3 h-3 border border-[#FFD700]/60 border-t-transparent rounded-full animate-spin" />
             Searching
           </span>
-        ) : question.selectedImage ? (
+        ) : hasCroppedImage ? (
           <span className="text-green-400 text-xs font-medium px-2 py-0.5 bg-green-400/10 rounded-full shrink-0">
             Image selected
           </span>
@@ -118,13 +123,49 @@ export default function QuestionRow({ index, question, loading, onSelectImage, o
             </div>
           ) : (
             <>
+              {/* Cropped image preview */}
+              {hasCroppedImage && (
+                <div className="pt-3 mb-3">
+                  <div className="relative group/crop rounded-lg overflow-hidden border-2 border-green-500/40 cursor-pointer" onClick={onRecrop}>
+                    <div className="aspect-video">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={question.selectedImage}
+                        alt={`Cropped image for ${question.answer}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/crop:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
+                      </svg>
+                      <span className="text-white text-sm font-medium">Re-crop</span>
+                    </div>
+                    {/* Remove button */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onSelectImage(""); }}
+                      className="absolute top-1.5 right-1.5 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-colors z-10"
+                      title="Remove selected image"
+                    >
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="text-white/30 text-xs mt-1.5 text-center">
+                    Click to re-crop &middot; Or pick a different image below
+                  </p>
+                </div>
+              )}
+
+              {/* Image options grid */}
               <div className="grid grid-cols-2 gap-3 pt-3">
                 {question.imageOptions.map((url, imgIndex) => (
                   <div key={imgIndex} className="relative">
                     <button
-                      onClick={() => onSelectImage(url)}
+                      onClick={() => onImageClick(url)}
                       className={`relative w-full rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.01] ${
-                        question.selectedImage === url
+                        sourceUrl === url
                           ? "border-[#FFD700] ring-2 ring-[#FFD700]/30"
                           : "border-transparent hover:border-white/20"
                       }`}
@@ -141,7 +182,7 @@ export default function QuestionRow({ index, question, loading, onSelectImage, o
                           }}
                         />
                       </div>
-                      {question.selectedImage === url && (
+                      {sourceUrl === url && (
                         <div className="absolute inset-0 bg-[#FFD700]/20 flex items-center justify-center">
                           <div className="bg-[#FFD700] rounded-full p-1">
                             <svg className="w-4 h-4 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -151,18 +192,6 @@ export default function QuestionRow({ index, question, loading, onSelectImage, o
                         </div>
                       )}
                     </button>
-                    {/* Remove X button — shown on selected images */}
-                    {question.selectedImage === url && (
-                      <button
-                        onClick={() => onSelectImage("")}
-                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-colors z-10"
-                        title="Remove selected image"
-                      >
-                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
                   </div>
                 ))}
 
@@ -170,46 +199,15 @@ export default function QuestionRow({ index, question, loading, onSelectImage, o
                 <div className="relative">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className={`w-full rounded-lg border-2 border-dashed transition-all hover:scale-[1.01] flex flex-col items-center justify-center gap-2 ${
-                      question.selectedImage?.startsWith("data:")
-                        ? "border-[#FFD700] ring-2 ring-[#FFD700]/30 bg-[#FFD700]/5"
-                        : "border-white/20 hover:border-white/40 bg-white/5"
-                    }`}
+                    className="w-full rounded-lg border-2 border-dashed transition-all hover:scale-[1.01] flex flex-col items-center justify-center gap-2 border-white/20 hover:border-white/40 bg-white/5"
                   >
                     <div className="aspect-video w-full flex flex-col items-center justify-center relative overflow-hidden rounded-lg">
-                      {question.selectedImage?.startsWith("data:") ? (
-                        <>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={question.selectedImage} alt="Uploaded" className="absolute inset-0 w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-[#FFD700]/20 flex items-center justify-center">
-                            <div className="bg-[#FFD700] rounded-full p-1">
-                              <svg className="w-4 h-4 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-6 h-6 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <span className="text-white/40 text-xs font-medium">Upload</span>
-                        </>
-                      )}
+                      <svg className="w-6 h-6 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-white/40 text-xs font-medium">Upload</span>
                     </div>
                   </button>
-                  {question.selectedImage?.startsWith("data:") && (
-                    <button
-                      onClick={() => onSelectImage("")}
-                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-colors z-10"
-                      title="Remove selected image"
-                    >
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileUpload} />
               </div>

@@ -1,7 +1,15 @@
+export interface CropData {
+  scale: number;
+  posX: number;
+  posY: number;
+}
+
 export interface GameQuestion {
   answer: string;
   imageOptions: string[];
   selectedImage: string;
+  originalImageUrl?: string;
+  cropData?: CropData;
 }
 
 export interface Game {

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchImages } from "@/lib/image-search";
 
-// Build a search query from the game title context + answer name
-// e.g. title="Name That 2010s Redskin", answer="Robert Griffin III"
-//   → "Robert Griffin III Washington Redskins football player"
+// Build a search query from the game title context + answer
+// Handles both team-based games (athletes) and general topics (movies, characters, etc.)
+
 const TEAM_MAP: Record<string, string> = {
   redskin: "Washington Redskins football",
   bull: "Chicago Bulls basketball",
@@ -29,15 +29,34 @@ const TEAM_MAP: Record<string, string> = {
   commander: "Washington Commanders football",
 };
 
+// Category keywords that indicate a non-person answer type
+const NON_PERSON_CATEGORIES = [
+  "movie", "film", "show", "series", "song", "album", "book",
+  "stadium", "arena", "team", "mascot", "logo", "car", "character",
+];
+
 function buildImageQuery(title: string, answer: string): string {
-  const rawContext = title
+  const stripped = title
     .replace(/^name\s+that\s+/i, "")
     .replace(/\d{2,4}s?\s*/i, "")
-    .trim()
-    .toLowerCase();
+    .trim();
+  const lower = stripped.toLowerCase();
 
-  const teamContext = TEAM_MAP[rawContext] || `${rawContext} sports`;
-  return `${answer} ${teamContext} player`;
+  // Check if the title matches a known team nickname (athlete game)
+  const teamContext = TEAM_MAP[lower];
+  if (teamContext) {
+    return `${answer} ${teamContext} player`;
+  }
+
+  // Check if the title indicates a non-person category
+  const isNonPerson = NON_PERSON_CATEGORIES.some((cat) => lower.includes(cat));
+  if (isNonPerson) {
+    // For movies → "Rocky 1976 movie scene", for characters → "Simba Lion King character"
+    return `${answer} ${stripped}`;
+  }
+
+  // Default: use the title context as a descriptor (works for "NBA Player", "Coach", etc.)
+  return `${answer} ${stripped}`;
 }
 
 export async function POST(request: NextRequest) {
