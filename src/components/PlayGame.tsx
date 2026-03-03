@@ -124,12 +124,12 @@ export default function PlayGame({ game }: PlayGameProps) {
       </p>
 
       {/* Image */}
-      <div className="relative aspect-[4/3] rounded-xl overflow-hidden border border-white/10 mb-6 bg-black">
+      <div className="relative aspect-video rounded-xl overflow-hidden border border-white/10 mb-6 bg-black">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={currentQuestion.selectedImage}
           alt="Who is this?"
-          className="w-full h-full object-contain"
+          className="w-full h-full object-cover"
         />
         {/* Timer overlay */}
         <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/10">

@@ -7,7 +7,7 @@ Demo for Snapback Sports CEO Jack Settlemen showing how AI can automate trivia g
 ## TECH STACK
 - Next.js 15 (App Router) with TypeScript and Tailwind CSS v4
 - Anthropic API for generating game answers
-- Google Custom Search API for finding images
+- SerpAPI (Google Images) for finding images
 - No database — game state stored in localStorage
 - Deployed on Vercel
 
@@ -19,15 +19,14 @@ Demo for Snapback Sports CEO Jack Settlemen showing how AI can automate trivia g
 
 ## KEY ARCHITECTURE
 - `/api/generate` — calls Anthropic API, takes a game title, returns 20 answers
-- `/api/images` — calls Google Custom Search API, takes game title + answer, returns image results
+- `/api/images` — calls SerpAPI Google Images, takes game title + answer, builds smart query (answer + context), returns image URLs
 - Builder flow: Title → Generate 20 answers → Pick images → Review → Play
 - Play mode: per-question stopwatch, pass sends question to back of queue, wrong removes it, game ends when queue empty
 - Fuzzy matching for answers (accept partial names, last names, nicknames)
 
 ## ENV VARIABLES (never commit actual keys)
 - `ANTHROPIC_API_KEY`
-- `GOOGLE_CUSTOM_SEARCH_API_KEY`
-- `GOOGLE_CUSTOM_SEARCH_ENGINE_ID`
+- `SERPAPI_KEY`
 
 ## RULES
 - Never modify `.env.local`
