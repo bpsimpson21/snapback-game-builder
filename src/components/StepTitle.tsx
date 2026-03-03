@@ -3,7 +3,9 @@
 interface StepTitleProps {
   title: string;
   onTitleChange: (title: string) => void;
-  onNext: () => void;
+  onGenerate: () => void;
+  generating: boolean;
+  error: string | null;
 }
 
 const EXAMPLE_TITLES = [
@@ -15,7 +17,7 @@ const EXAMPLE_TITLES = [
   "Name That 2000s Patriot",
 ];
 
-export default function StepTitle({ title, onTitleChange, onNext }: StepTitleProps) {
+export default function StepTitle({ title, onTitleChange, onGenerate, generating, error }: StepTitleProps) {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
@@ -33,20 +35,44 @@ export default function StepTitle({ title, onTitleChange, onNext }: StepTitlePro
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && title.trim()) onNext();
+            if (e.key === "Enter" && title.trim() && !generating) onGenerate();
           }}
           placeholder="e.g., Name That 2010s Redskin"
-          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 text-lg focus:outline-none focus:border-[#FFD700]/50 focus:ring-1 focus:ring-[#FFD700]/50 transition-colors"
+          disabled={generating}
+          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 text-lg focus:outline-none focus:border-[#FFD700]/50 focus:ring-1 focus:ring-[#FFD700]/50 disabled:opacity-50 transition-colors"
         />
 
         <button
-          onClick={onNext}
-          disabled={!title.trim()}
-          className="w-full py-3 bg-[#FFD700] text-black font-bold rounded-lg text-lg hover:bg-[#FFD700]/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          onClick={onGenerate}
+          disabled={!title.trim() || generating}
+          className="w-full py-3 bg-[#FFD700] text-black font-bold rounded-lg text-lg hover:bg-[#FFD700]/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
-          Continue
+          {generating ? (
+            <>
+              <span className="inline-block w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              Generating...
+            </>
+          ) : (
+            "Generate 20 Questions"
+          )}
         </button>
       </div>
+
+      {/* Error display */}
+      {error && (
+        <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+          <p className="text-red-400 text-sm mb-3">
+            Failed to generate questions. This can happen with unusual topics — try again or adjust your game title.
+          </p>
+          <button
+            onClick={onGenerate}
+            disabled={generating}
+            className="px-4 py-1.5 bg-red-500/20 text-red-300 text-sm font-medium rounded-md hover:bg-red-500/30 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="mt-8">
         <p className="text-white/40 text-sm mb-3 text-center">
@@ -57,7 +83,8 @@ export default function StepTitle({ title, onTitleChange, onNext }: StepTitlePro
             <button
               key={example}
               onClick={() => onTitleChange(example)}
-              className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-white/70 hover:bg-white/10 hover:text-white hover:border-white/20 transition-colors"
+              disabled={generating}
+              className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-white/70 hover:bg-white/10 hover:text-white hover:border-white/20 disabled:opacity-30 transition-colors"
             >
               {example}
             </button>
@@ -87,9 +114,9 @@ export default function StepTitle({ title, onTitleChange, onNext }: StepTitlePro
               2
             </span>
             <div>
-              <p className="text-white text-sm font-medium">AI generates 20 answers</p>
+              <p className="text-white text-sm font-medium">Verify &amp; approve answers</p>
               <p className="text-white/40 text-xs mt-0.5">
-                Claude analyzes your title and produces 20 correct answers instantly.
+                Review the AI&apos;s answers. Edit, remove, or add your own before searching for images.
               </p>
             </div>
           </div>
@@ -98,9 +125,9 @@ export default function StepTitle({ title, onTitleChange, onNext }: StepTitlePro
               3
             </span>
             <div>
-              <p className="text-white text-sm font-medium">Images auto-populate</p>
+              <p className="text-white text-sm font-medium">Pick the best image</p>
               <p className="text-white/40 text-xs mt-0.5">
-                Google Image Search finds 2&ndash;4 photo options for each answer.
+                Google Image Search finds photos for each answer. Crop and select the best one.
               </p>
             </div>
           </div>
@@ -109,9 +136,9 @@ export default function StepTitle({ title, onTitleChange, onNext }: StepTitlePro
               4
             </span>
             <div>
-              <p className="text-white text-sm font-medium">Review &amp; customize</p>
+              <p className="text-white text-sm font-medium">Review &amp; publish</p>
               <p className="text-white/40 text-xs mt-0.5">
-                Pick the best image for each question, edit or swap answers, then publish.
+                Customize settings, reorder questions, then publish your game.
               </p>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { Game, GameMeta } from "@/types/game";
+import { Game, GameMeta, BuilderDraft } from "@/types/game";
 
 const INDEX_KEY = "snapback-game-index";
 
@@ -28,6 +28,8 @@ export function saveGame(game: Game): void {
     questionCount: game.questions.length,
     createdAt: game.createdAt,
     playCount: game.playCount,
+    categories: game.categories,
+    isDraft: game.isDraft,
   };
 
   const existing = index.findIndex((g) => g.id === game.id);
@@ -71,4 +73,25 @@ export function deleteGame(id: string): void {
   localStorage.removeItem(`game-${id}`);
   const index = getGameIndex().filter((g) => g.id !== id);
   saveGameIndex(index);
+}
+
+// Draft persistence
+const DRAFT_KEY = "snapback-builder-draft";
+
+export function saveDraft(draft: BuilderDraft): void {
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+}
+
+export function loadDraft(): BuilderDraft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as BuilderDraft;
+  } catch {
+    return null;
+  }
+}
+
+export function clearDraft(): void {
+  localStorage.removeItem(DRAFT_KEY);
 }

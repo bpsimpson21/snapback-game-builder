@@ -7,6 +7,7 @@ interface QuestionRowProps {
   index: number;
   question: GameQuestion;
   loading?: boolean;
+  readOnly?: boolean;
   onSelectImage: (imageUrl: string) => void;
   onImageClick: (imageUrl: string) => void;
   onRecrop: () => void;
@@ -15,7 +16,7 @@ interface QuestionRowProps {
   onExpand?: () => void;
 }
 
-export default function QuestionRow({ index, question, loading, onSelectImage, onImageClick, onRecrop, onAnswerChange, onDelete, onExpand }: QuestionRowProps) {
+export default function QuestionRow({ index, question, loading, readOnly, onSelectImage, onImageClick, onRecrop, onAnswerChange, onDelete, onExpand }: QuestionRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [editValue, setEditValue] = useState(question.answer);
   const [isEditing, setIsEditing] = useState(false);
@@ -52,8 +53,12 @@ export default function QuestionRow({ index, question, loading, onSelectImage, o
           {index + 1}
         </span>
 
-        {/* Editable answer */}
-        {isEditing ? (
+        {/* Answer text */}
+        {readOnly ? (
+          <span className="flex-1 text-white font-medium text-sm truncate">
+            {question.answer}
+          </span>
+        ) : isEditing ? (
           <input
             type="text"
             value={editValue}
@@ -102,16 +107,18 @@ export default function QuestionRow({ index, question, loading, onSelectImage, o
           </svg>
         </button>
 
-        <button
-          onClick={onDelete ?? undefined}
-          disabled={!onDelete}
-          title={onDelete ? "Remove this answer" : "Minimum 10 answers required"}
-          className="shrink-0 p-1 hover:bg-red-500/10 rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed group/del"
-        >
-          <svg className="w-4 h-4 text-white/30 group-hover/del:text-red-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+        {!readOnly && (
+          <button
+            onClick={onDelete ?? undefined}
+            disabled={!onDelete}
+            title={onDelete ? "Remove this answer" : "Minimum 10 answers required"}
+            className="shrink-0 p-1 hover:bg-red-500/10 rounded transition-colors disabled:opacity-20 disabled:cursor-not-allowed group/del"
+          >
+            <svg className="w-4 h-4 text-white/30 group-hover/del:text-red-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {expanded && (
