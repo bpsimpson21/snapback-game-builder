@@ -1,7 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { GameQuestion } from "@/types/game";
+
+function proxyUrl(url: string): string {
+  if (!url || url.startsWith("data:") || url.startsWith("/api/")) return url;
+  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+}
 
 interface QuestionRowProps {
   index: number;
@@ -168,38 +173,14 @@ export default function QuestionRow({ index, question, loading, readOnly, onSele
               {/* Image options grid */}
               <div className="grid grid-cols-2 gap-3 pt-3">
                 {question.imageOptions.map((url, imgIndex) => (
-                  <div key={imgIndex} className="relative">
-                    <button
-                      onClick={() => onImageClick(url)}
-                      className={`relative w-full rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.01] ${
-                        sourceUrl === url
-                          ? "border-[#FFD700] ring-2 ring-[#FFD700]/30"
-                          : "border-transparent hover:border-white/20"
-                      }`}
-                    >
-                      <div className="aspect-video">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={`Option ${imgIndex + 1} for ${question.answer}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Crect fill='%23222' width='320' height='180'/%3E%3Ctext fill='%23666' x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
-                          }}
-                        />
-                      </div>
-                      {sourceUrl === url && (
-                        <div className="absolute inset-0 bg-[#FFD700]/20 flex items-center justify-center">
-                          <div className="bg-[#FFD700] rounded-full p-1">
-                            <svg className="w-4 h-4 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        </div>
-                      )}
-                    </button>
-                  </div>
+                  <ThumbnailOption
+                    key={imgIndex}
+                    url={url}
+                    imgIndex={imgIndex}
+                    answer={question.answer}
+                    isSelected={sourceUrl === url}
+                    onImageClick={onImageClick}
+                  />
                 ))}
 
                 {/* Upload own image */}
@@ -228,6 +209,82 @@ export default function QuestionRow({ index, question, loading, readOnly, onSele
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Separate component so each thumbnail manages its own error/retry state
+function ThumbnailOption({
+  url,
+  imgIndex,
+  answer,
+  isSelected,
+  onImageClick,
+}: {
+  url: string;
+  imgIndex: number;
+  answer: string;
+  isSelected: boolean;
+  onImageClick: (url: string) => void;
+}) {
+  const [failed, setFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+
+  const handleRetry = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFailed(false);
+    setRetryKey((k) => k + 1);
+  }, []);
+
+  if (failed) {
+    return (
+      <div className="relative">
+        <button
+          onClick={handleRetry}
+          className="relative w-full rounded-lg overflow-hidden border-2 border-transparent hover:border-white/20 transition-all"
+        >
+          <div className="aspect-video bg-white/5 flex flex-col items-center justify-center gap-1.5">
+            <svg className="w-5 h-5 text-white/25" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="text-white/30 text-[10px] font-medium">Retry</span>
+          </div>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => onImageClick(url)}
+        className={`relative w-full rounded-lg overflow-hidden border-2 transition-all hover:scale-[1.01] ${
+          isSelected
+            ? "border-[#FFD700] ring-2 ring-[#FFD700]/30"
+            : "border-transparent hover:border-white/20"
+        }`}
+      >
+        <div className="aspect-video">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            key={retryKey}
+            src={proxyUrl(url)}
+            alt={`Option ${imgIndex + 1} for ${answer}`}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={() => setFailed(true)}
+          />
+        </div>
+        {isSelected && (
+          <div className="absolute inset-0 bg-[#FFD700]/20 flex items-center justify-center">
+            <div className="bg-[#FFD700] rounded-full p-1">
+              <svg className="w-4 h-4 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+        )}
+      </button>
     </div>
   );
 }
