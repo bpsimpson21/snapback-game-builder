@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Game, GameQuestion, GAME_CATEGORIES } from "@/types/game";
-import { saveGame, clearDraft } from "@/lib/game-store";
+import { saveGame, clearDraft, stripBase64FromQuestions } from "@/lib/game-store";
+import { uploadGameImages } from "@/lib/image-upload";
 
 interface StepReviewProps {
   title: string;
@@ -48,30 +49,59 @@ export default function StepReview({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
 
-  function handlePublish() {
-    const game: Game = {
-      id: Date.now().toString(36),
-      title,
-      questions,
-      createdAt: Date.now(),
-      playCount: 0,
-      categories: categories.length > 0 ? categories : undefined,
-      explainerText: explainerText || undefined,
-      samePromptAndResult,
-      requireExactMatches,
-    };
+  // Publish state
+  const [publishing, setPublishing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
-    saveGame(game);
-    clearDraft();
+  async function handlePublish() {
+    setPublishing(true);
+    setPublishError(null);
+    setUploadProgress(null);
 
-    const playUrl = `${window.location.origin}/play?id=${game.id}`;
-    navigator.clipboard.writeText(playUrl).catch(() => {});
+    try {
+      const gameId = Date.now().toString(36);
 
-    setPublished(true);
-    setShowConfirm(false);
-    setTimeout(() => {
-      router.push(`/?published=${game.id}`);
-    }, 1500);
+      // Upload base64 images to Supabase Storage
+      const uploadedQuestions = await uploadGameImages(
+        gameId,
+        questions,
+        (progress) => setUploadProgress(progress)
+      );
+
+      const game: Game = {
+        id: gameId,
+        title,
+        questions: uploadedQuestions,
+        createdAt: Date.now(),
+        playCount: 0,
+        categories: categories.length > 0 ? categories : undefined,
+        explainerText: explainerText || undefined,
+        samePromptAndResult,
+        requireExactMatches,
+      };
+
+      const saved = saveGame(game);
+      if (!saved) {
+        setPublishError("Failed to save game — storage quota exceeded. Try deleting old games.");
+        setPublishing(false);
+        return;
+      }
+
+      clearDraft();
+
+      const playUrl = `${window.location.origin}/play?id=${game.id}`;
+      navigator.clipboard.writeText(playUrl).catch(() => {});
+
+      setPublished(true);
+      setShowConfirm(false);
+      setTimeout(() => {
+        router.push(`/?published=${game.id}`);
+      }, 1500);
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : "Failed to publish game");
+      setPublishing(false);
+    }
   }
 
   function handlePreview() {
@@ -82,7 +112,22 @@ export default function StepReview({
       createdAt: Date.now(),
       playCount: 0,
     };
-    localStorage.setItem("game-preview", JSON.stringify(game));
+
+    try {
+      localStorage.setItem("game-preview", JSON.stringify(game));
+    } catch {
+      // Quota exceeded — strip base64 and retry
+      const stripped: Game = {
+        ...game,
+        questions: stripBase64FromQuestions(game.questions),
+      };
+      try {
+        localStorage.setItem("game-preview", JSON.stringify(stripped));
+      } catch {
+        alert("Not enough storage space for preview. Try deleting old games.");
+        return;
+      }
+    }
     window.open("/play?id=preview", "_blank");
   }
 
@@ -348,7 +393,7 @@ export default function StepReview({
       {showConfirm && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setShowConfirm(false)}
+          onClick={() => { if (!publishing) setShowConfirm(false); }}
         >
           <div
             className="bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4"
@@ -358,18 +403,55 @@ export default function StepReview({
             <p className="text-white/60 text-sm mb-6">
               Publish &ldquo;{title}&rdquo; with {questions.length} questions? The play link will be copied to your clipboard.
             </p>
+
+            {/* Upload progress */}
+            {publishing && uploadProgress && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between text-xs text-white/40 mb-1">
+                  <span>Uploading images...</span>
+                  <span>{uploadProgress.done}/{uploadProgress.total}</span>
+                </div>
+                <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#FFD700] rounded-full transition-all duration-300"
+                    style={{ width: `${(uploadProgress.done / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {publishing && !uploadProgress && (
+              <div className="flex items-center gap-2 text-white/40 text-sm mb-4">
+                <div className="w-4 h-4 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin" />
+                Publishing...
+              </div>
+            )}
+
+            {/* Error message */}
+            {publishError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-red-400 text-sm">{publishError}</p>
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => setShowConfirm(false)}
-                className="px-5 py-2 border border-white/10 text-white/60 font-medium rounded-lg hover:bg-white/5 hover:text-white transition-colors text-sm"
+                disabled={publishing}
+                className="px-5 py-2 border border-white/10 text-white/60 font-medium rounded-lg hover:bg-white/5 hover:text-white transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePublish}
-                className="px-5 py-2 bg-[#FFD700] text-black font-bold rounded-lg hover:bg-[#FFD700]/90 transition-colors text-sm"
+                disabled={publishing}
+                className="px-5 py-2 bg-[#FFD700] text-black font-bold rounded-lg hover:bg-[#FFD700]/90 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Publish
+                {publishing
+                  ? uploadProgress
+                    ? `Uploading ${uploadProgress.done}/${uploadProgress.total}...`
+                    : "Publishing..."
+                  : "Publish"}
               </button>
             </div>
           </div>

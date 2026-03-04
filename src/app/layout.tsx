@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import StorageCleanup from "@/components/StorageCleanup";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-[#0A0A0A] text-white antialiased">
+        <StorageCleanup />
         {children}
       </body>
     </html>

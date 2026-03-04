@@ -8,6 +8,7 @@ Demo for Snapback Sports CEO Jack Settlemen showing how AI can automate trivia g
 - Next.js 15 (App Router) with TypeScript and Tailwind CSS v4
 - Anthropic API for generating game answers
 - SerpAPI (Google Images) for finding images
+- Supabase Storage for image hosting (cropped images uploaded on publish)
 - No database — game state stored in localStorage
 - Deployed on Vercel
 
@@ -27,6 +28,8 @@ Demo for Snapback Sports CEO Jack Settlemen showing how AI can automate trivia g
 ## ENV VARIABLES (never commit actual keys)
 - `ANTHROPIC_API_KEY`
 - `SERPAPI_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 ## RULES
 - Never modify `.env.local`
