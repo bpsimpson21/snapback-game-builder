@@ -56,7 +56,7 @@ export default function GameCard({ game, highlighted, onDelete }: GameCardProps)
       </div>
 
       <Link
-        href={`/play?id=${game.id}`}
+        href={`/play/${game.id}`}
         className="inline-flex items-center gap-2 px-5 py-2 bg-[#FFD700] text-black font-bold text-sm rounded-lg hover:bg-[#FFD700]/90 transition-colors"
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { GameMeta } from "@/types/game";
-import { getGameIndex, deleteGame } from "@/lib/game-store";
+import { fetchPublishedGames, deletePublishedGame } from "@/lib/supabase-games";
 import Header from "@/components/Header";
 import GameCard from "@/components/GameCard";
 
@@ -15,16 +15,19 @@ function HomeContent() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const index = getGameIndex();
-    // Sort newest first
-    index.sort((a, b) => b.createdAt - a.createdAt);
-    setGames(index);
-    setLoaded(true);
+    fetchPublishedGames()
+      .then((g) => setGames(g))
+      .catch(() => setGames([]))
+      .finally(() => setLoaded(true));
   }, []);
 
-  function handleDelete(id: string) {
-    deleteGame(id);
-    setGames((prev) => prev.filter((g) => g.id !== id));
+  async function handleDelete(id: string) {
+    try {
+      await deletePublishedGame(id);
+      setGames((prev) => prev.filter((g) => g.id !== id));
+    } catch {
+      // Silently fail for demo
+    }
   }
 
   return (

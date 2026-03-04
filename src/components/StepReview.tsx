@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Game, GameQuestion, GAME_CATEGORIES } from "@/types/game";
-import { saveGame, clearDraft, stripBase64FromQuestions } from "@/lib/game-store";
+import { clearDraft, stripBase64FromQuestions } from "@/lib/game-store";
 import { uploadGameImages } from "@/lib/image-upload";
+import { publishGame } from "@/lib/supabase-games";
 
 interface StepReviewProps {
   title: string;
@@ -60,7 +61,8 @@ export default function StepReview({
     setUploadProgress(null);
 
     try {
-      const gameId = Date.now().toString(36);
+      // Pre-generate UUID so image folder matches DB ID
+      const gameId = crypto.randomUUID();
 
       // Upload base64 images to Supabase Storage
       const uploadedQuestions = await uploadGameImages(
@@ -69,34 +71,27 @@ export default function StepReview({
         (progress) => setUploadProgress(progress)
       );
 
-      const game: Game = {
-        id: gameId,
+      // Save to Supabase database
+      setUploadProgress(null); // Switch to "Saving game..." state
+      await publishGame(
+        gameId,
         title,
-        questions: uploadedQuestions,
-        createdAt: Date.now(),
-        playCount: 0,
-        categories: categories.length > 0 ? categories : undefined,
-        explainerText: explainerText || undefined,
-        samePromptAndResult,
-        requireExactMatches,
-      };
-
-      const saved = saveGame(game);
-      if (!saved) {
-        setPublishError("Failed to save game — storage quota exceeded. Try deleting old games.");
-        setPublishing(false);
-        return;
-      }
+        categories.length > 0 ? categories[0] : null,
+        uploadedQuestions.map((q) => ({
+          imageUrl: q.selectedImage,
+          answer: q.answer,
+        }))
+      );
 
       clearDraft();
 
-      const playUrl = `${window.location.origin}/play?id=${game.id}`;
+      const playUrl = `${window.location.origin}/play/${gameId}`;
       navigator.clipboard.writeText(playUrl).catch(() => {});
 
       setPublished(true);
       setShowConfirm(false);
       setTimeout(() => {
-        router.push(`/?published=${game.id}`);
+        router.push(`/?published=${gameId}`);
       }, 1500);
     } catch (err) {
       setPublishError(err instanceof Error ? err.message : "Failed to publish game");
@@ -128,7 +123,7 @@ export default function StepReview({
         return;
       }
     }
-    window.open("/play?id=preview", "_blank");
+    window.open("/play/preview", "_blank");
   }
 
   function handleTitleCommit() {
@@ -423,7 +418,7 @@ export default function StepReview({
             {publishing && !uploadProgress && (
               <div className="flex items-center gap-2 text-white/40 text-sm mb-4">
                 <div className="w-4 h-4 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin" />
-                Publishing...
+                Saving game...
               </div>
             )}
 
@@ -450,7 +445,7 @@ export default function StepReview({
                 {publishing
                   ? uploadProgress
                     ? `Uploading ${uploadProgress.done}/${uploadProgress.total}...`
-                    : "Publishing..."
+                    : "Saving..."
                   : "Publish"}
               </button>
             </div>

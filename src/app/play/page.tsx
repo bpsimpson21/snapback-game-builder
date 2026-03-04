@@ -1,90 +1,102 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Game } from "@/types/game";
-import { incrementPlayCount } from "@/lib/game-store";
-import PlayGame from "@/components/PlayGame";
+import { GameMeta } from "@/types/game";
+import { fetchPublishedGames, deletePublishedGame } from "@/lib/supabase-games";
 import Header from "@/components/Header";
-
-function PlayContent() {
-  const searchParams = useSearchParams();
-  const gameId = searchParams.get("id");
-  const [game, setGame] = useState<Game | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!gameId) {
-      setError("No game ID provided");
-      return;
-    }
-
-    const key = gameId === "preview" ? "game-preview" : `game-${gameId}`;
-    const stored = localStorage.getItem(key);
-
-    if (!stored) {
-      setError("Game not found. The link may have expired or the game was created on a different device.");
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(stored) as Game;
-      setGame(parsed);
-
-      // Increment play count (skip for preview)
-      if (gameId !== "preview") {
-        incrementPlayCount(gameId);
-      }
-    } catch {
-      setError("Failed to load game data");
-    }
-  }, [gameId]);
-
-  if (error) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-400 text-lg mb-4">{error}</p>
-          <Link
-            href="/"
-            className="text-[#FFD700] hover:underline"
-          >
-            &larr; Back to Games
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!game) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 py-8 px-6">
-      <PlayGame game={game} />
-    </div>
-  );
-}
+import GameCard from "@/components/GameCard";
 
 export default function PlayPage() {
+  const [games, setGames] = useState<GameMeta[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetchPublishedGames()
+      .then((g) => setGames(g))
+      .catch(() => setGames([]))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  async function handleDelete(id: string) {
+    try {
+      await deletePublishedGame(id);
+      setGames((prev) => prev.filter((g) => g.id !== id));
+    } catch {
+      // Silently fail for demo
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <Suspense
-        fallback={
-          <div className="flex-1 flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin" />
+
+      <main className="flex-1 px-6 py-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-black text-white mb-1">Play Games</h1>
+              <p className="text-white/50 text-sm">
+                Browse and play &ldquo;Name That X&rdquo; trivia games
+              </p>
+            </div>
+            <Link
+              href="/builder"
+              className="px-6 py-3 bg-[#FFD700] text-black font-bold rounded-lg text-sm hover:bg-[#FFD700]/90 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              Create New Game
+            </Link>
           </div>
-        }
-      >
-        <PlayContent />
-      </Suspense>
+
+          {!loaded && (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 border-2 border-[#FFD700] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          {loaded && games.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {games.map((game) => (
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  onDelete={() => handleDelete(game.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {loaded && games.length === 0 && (
+            <div className="text-center py-20">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-white/5 rounded-full mb-4">
+                <svg className="w-8 h-8 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">No games yet</h2>
+              <p className="text-white/40 mb-6">Create your first &ldquo;Name That X&rdquo; trivia game!</p>
+              <Link
+                href="/builder"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#FFD700] text-black font-bold rounded-lg hover:bg-[#FFD700]/90 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+                Create New Game
+              </Link>
+            </div>
+          )}
+        </div>
+      </main>
+
+      <footer className="border-t border-white/5 py-4 text-center">
+        <p className="text-white/20 text-xs">
+          Snapback Sports &copy; {new Date().getFullYear()}
+        </p>
+      </footer>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 export default function Header() {
   const pathname = usePathname();
 
-  const isGames = pathname === "/";
+  const isGames = pathname === "/" || pathname.startsWith("/play");
   const isBuilder = pathname === "/builder";
 
   return (
